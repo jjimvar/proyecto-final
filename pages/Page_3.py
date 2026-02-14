@@ -5,6 +5,7 @@ import yfinance as yf
 import datetime as dt
 import pickle
 import numpy as np
+import os
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score, mean_absolute_percentage_error
 import matplotlib.pyplot as plt
 
@@ -151,6 +152,89 @@ try:
     )
     
     st.plotly_chart(fig_metricas, use_container_width=True)
+
+    # --- GRÁFICA 3: Evolución de métricas por día de predicción ---
+    st.subheader("Evolución de Métricas por Día de Predicción")
+
+    metricas_por_dia = []
+    dias_disponibles = []
+    dias_faltantes = []
+
+    for dia in range(1, 6):
+        archivo_dia = f"walk_forward_dia{dia}.pkl"
+        if not os.path.exists(archivo_dia):
+            dias_faltantes.append(dia)
+            continue
+
+        with open(archivo_dia, "rb") as f:
+            datos_dia = pickle.load(f)
+
+        if isinstance(datos_dia, dict) and isinstance(datos_dia.get("metricas"), dict):
+            mae = float(datos_dia["metricas"].get("MAE", np.nan))
+            rmse = float(datos_dia["metricas"].get("RMSE", np.nan))
+            mape = float(datos_dia["metricas"].get("MAPE", np.nan))
+        else:
+            y_true = np.array(datos_dia.get("actuals", []))
+            y_pred = np.array(datos_dia.get("preds", []))
+            if y_true.size == 0 or y_pred.size == 0:
+                dias_faltantes.append(dia)
+                continue
+            mae = mean_absolute_error(y_true, y_pred)
+            rmse = np.sqrt(mean_squared_error(y_true, y_pred))
+            mape = mean_absolute_percentage_error(y_true, y_pred)
+
+        metricas_por_dia.append({
+            "Día": dia,
+            "MAE": mae,
+            "RMSE": rmse,
+            "MAPE (%)": mape * 100
+        })
+        dias_disponibles.append(dia)
+
+    if metricas_por_dia:
+        df_metricas_dia = pd.DataFrame(metricas_por_dia).sort_values("Día")
+
+        metrica_seleccionada = st.selectbox(
+            "Selecciona una métrica:",
+            ["MAE", "RMSE", "MAPE (%)"],
+            index=0
+        )
+
+        fig_evolucion = go.Figure()
+        fig_evolucion.add_trace(go.Scatter(
+            x=df_metricas_dia["Día"],
+            y=df_metricas_dia[metrica_seleccionada],
+            mode="lines+markers",
+            name=metrica_seleccionada,
+            line=dict(color="#22c55e", width=3),
+            marker=dict(size=8, color="#22c55e", line=dict(color="white", width=1))
+        ))
+
+        fig_evolucion.update_layout(
+            title="Evolución por Horizonte (1-5 días)",
+            xaxis_title="Día de Predicción",
+            yaxis_title=metrica_seleccionada,
+            paper_bgcolor="rgba(0,0,0,0)",
+            plot_bgcolor="rgba(0,0,0,0)",
+            font=dict(color="white"),
+            height=400,
+            hovermode="x unified"
+        )
+
+        st.plotly_chart(fig_evolucion, use_container_width=True)
+        st.dataframe(df_metricas_dia.round(4), use_container_width=True, hide_index=True)
+
+        if dias_faltantes:
+            st.info(
+                "No se encontraron archivos de walk forward para los días: "
+                + ", ".join(str(d) for d in dias_faltantes)
+                + ". Si deseas ver los 5 días, guarda los archivos 'walk_forward_diaN.pkl' al ejecutar el notebook."
+            )
+    else:
+        st.warning(
+            "No hay datos disponibles para mostrar la evolución por día. "
+            "Ejecuta el notebook y guarda los archivos 'walk_forward_dia1.pkl' a 'walk_forward_dia5.pkl'."
+        )
     
 except FileNotFoundError:
     st.warning(
