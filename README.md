@@ -17,9 +17,9 @@ Este proyecto implementa un sistema de predicción de precios basado en aprendiz
 ## 🏗️ Estructura del Proyecto
 ```
 proyecto-final/
-├── 0.README.md                          # Este archivo
+├── README.md                          # Este archivo
 ├── 0.INSTALACION.md                     # Guía de instalación detallada
-├── 0.requirements.txt                   # Dependencias del proyecto
+├── requirements.txt                   # Dependencias del proyecto
 |
 ├── Home.py                        # Página principal streamlit
 |    ├── pages/
